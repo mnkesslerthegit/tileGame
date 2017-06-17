@@ -52,7 +52,7 @@ public class Board {
 	 * Keep making moves until the board enters a win state
 	 */
 	public void test() {
-		int i=0;
+		int i = 0;
 		while (!winCondition()) {
 
 			Move next = nextMove();
@@ -63,9 +63,13 @@ public class Board {
 			place[swapTarget.getX()][swapTarget.getY()] = 0;
 			hole = swapTarget;
 
-			if( i++ % 10000 == 0){
-			//System.out.println();
-			print();
+			if (i++ % 10000 == 0) {
+				System.out.println();
+				print();
+			}
+			
+			if(moveHistory.size() > 3){
+				moveHistory.remove(0);
 			}
 
 			// String test = slow.nextLine();
@@ -228,12 +232,20 @@ public class Board {
 		int count = 1;
 		for (int i = 0; i < place.length; i++) {
 			for (int q = 0; q < place[i].length; q++) {
+				if(i == 0 && q == 0 || i == 2 && q == 2){
+					if(place[i][q] != 1 && place[i][q] != 9 && place[i][q] != 0){
+						return false;
+					}
+				}else{
+				
 				if (place[i][q] != count && place[i][q] != 0) {
 					return false;
+				}
 				}
 				count++;
 			}
 		}
+		System.out.println("YOU WIN");
 		return true;
 	}
 
