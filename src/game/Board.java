@@ -5,6 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
@@ -13,9 +14,7 @@ import utility.ArrayReader;
 import utility.Point;
 
 /**
- * Still need to create some representation for the boards state, (number) and a
- * hash table to store the states in
- * 
+ 
  * use brute force get every number in the right place, and then use breadth on
  * the states to see if they yield short cuts to later states. iterating over
  * the whole list looking for shortcuts until the number of steps stops
@@ -32,7 +31,16 @@ public class Board {
 
 	private final int[][] place;
 	private Point hole;
-	private List<Move> moveHistory = new ArrayList();
+	
+	/**
+	 * remember if a state was generated
+	 */
+	Hashtable<Integer,Boolean> visitedStates = new Hashtable<Integer, Boolean>(987654321);
+	ArrayList<Integer> keys = new ArrayList<>();
+	/**
+	 * Keep track of the last move
+	 */
+	private Move last;
 
 	public Board() {
 		ArrayReader reader = new ArrayReader("tiles.txt");
@@ -43,6 +51,21 @@ public class Board {
 				if (place[i][q] == 0)
 					hole = new Point(i, q);
 			}
+		}
+	}
+	
+	private void saveState(){
+		int key = state(place); 
+		keys.add(key);
+		if(visitedStates.put(key, true)){ // if we found a collision, it means we've been here before, and all the steps before were useless. 
+			
+			keys.remove(keys.size()-1); // remove the repeat key
+			
+			while(keys.get(keys.size()-1) != key){
+				keys.remove(keys.size()-1);  //remove all keys before the origianl
+				visitedStates.put(keys.get(keys.size()-1), null); // also take the states out again.
+			}
+			System.out.println("Found a duplicate state");
 		}
 	}
 
@@ -62,19 +85,23 @@ public class Board {
 			place[hole.getX()][hole.getY()] = place[swapTarget.getX()][swapTarget.getY()];
 			place[swapTarget.getX()][swapTarget.getY()] = 0;
 			hole = swapTarget;
+			
+			saveState();
 
 			if (i++ % 10000 == 0) {
 				System.out.println();
 				print();
 			}
-			
-			if(moveHistory.size() > 3){
-				moveHistory.remove(0);
-			}
+
+		
 
 			// String test = slow.nextLine();
 
 		}
+	}
+	
+	public void otherTest(){
+		System.out.println("HERES THE STATER OF THINGS:" + state(place));
 	}
 
 	/**
@@ -119,8 +146,8 @@ public class Board {
 	 */
 	private Move nextMove() {
 		Move result = randomMove();
-		if (!moveHistory.isEmpty()) {
-			Move last = moveHistory.get(moveHistory.size() - 1);
+		if (last != null) {
+			
 			while (result.reverse(last) || !inBounds(result.doMove(hole))) {
 				if (randy.nextBoolean()) {
 					// System.out.println("Decrementing: " + result);
@@ -151,7 +178,7 @@ public class Board {
 			}
 		}
 
-		moveHistory.add(result);
+		last = result;
 		// System.out.println("MOVING: " + result);
 		return result;
 	}
@@ -232,15 +259,15 @@ public class Board {
 		int count = 1;
 		for (int i = 0; i < place.length; i++) {
 			for (int q = 0; q < place[i].length; q++) {
-				if(i == 0 && q == 0 || i == 2 && q == 2){
-					if(place[i][q] != 1 && place[i][q] != 9 && place[i][q] != 0){
+				if (i == 0 && q == 0 || i == 2 && q == 2) {
+					if (place[i][q] != 1 && place[i][q] != 9 && place[i][q] != 0) {
 						return false;
 					}
-				}else{
-				
-				if (place[i][q] != count && place[i][q] != 0) {
-					return false;
-				}
+				} else {
+
+					if (place[i][q] != count && place[i][q] != 0) {
+						return false;
+					}
 				}
 				count++;
 			}
@@ -256,6 +283,29 @@ public class Board {
 			}
 			System.out.println();
 		}
+	}
+
+	public int state(int[][] board) {
+		String temp = "";
+		for (int i = 0; i < place.length; i++) {
+			for (int q = 0; q < place[i].length; q++) {
+				temp += place[i][q];
+			}
+		}
+		int result = Integer.parseInt(temp);
+		return result;
+	}
+
+	public void fromState(int state, int[][] modified) {
+		String str = "" + state;
+		int count = 0;
+		for (int i = 0; i < place.length; i++) {
+			for (int q = 0; q < place[i].length; q++) {
+				modified[i][q] = str.charAt(count);
+				count++;
+			}
+		}
+
 	}
 
 }
