@@ -14,7 +14,7 @@ import utility.ArrayReader;
 import utility.Point;
 
 /**
- 
+ * 
  * use brute force get every number in the right place, and then use breadth on
  * the states to see if they yield short cuts to later states. iterating over
  * the whole list looking for shortcuts until the number of steps stops
@@ -29,18 +29,25 @@ import utility.Point;
  */
 public class Board {
 
+	private static final int GRIDWIDTH = 3;
+	private static final int GRIDLENGTH = 3;
 	private final int[][] place;
 	private Point hole;
 	
+
 	/**
 	 * remember if a state was generated
 	 */
-	Hashtable<Integer,Boolean> visitedStates = new Hashtable<Integer, Boolean>(987654321);
+	Hashtable<Integer, Boolean> visitedStates = new Hashtable<Integer, Boolean>(362880);
 	ArrayList<Integer> keys = new ArrayList<>();
 	/**
 	 * Keep track of the last move
 	 */
 	private Move last;
+
+	public void otherTest() {
+
+	}
 
 	public Board() {
 		ArrayReader reader = new ArrayReader("tiles.txt");
@@ -52,20 +59,31 @@ public class Board {
 					hole = new Point(i, q);
 			}
 		}
+		// visitedStates.clear();
 	}
-	
-	private void saveState(){
-		int key = state(place); 
+
+	private void saveState() {
+		Integer key = state(place);
 		keys.add(key);
-		if(visitedStates.put(key, true)){ // if we found a collision, it means we've been here before, and all the steps before were useless. 
-			
-			keys.remove(keys.size()-1); // remove the repeat key
-			
-			while(keys.get(keys.size()-1) != key){
-				keys.remove(keys.size()-1);  //remove all keys before the origianl
-				visitedStates.put(keys.get(keys.size()-1), null); // also take the states out again.
+		// System.out.println(key.hashCode());
+		// visitedStates.clear();
+		// visitedStates.put(1, true);
+		Boolean temp = visitedStates.put(key, true);
+		if (temp != null && temp) { // if we found a collision, it means
+									// we've been here before, and all
+									// the steps before were useless.
+
+			keys.remove(keys.size() - 1); // remove the repeat key
+
+			while (!keys.isEmpty() && !keys.get(keys.size() - 1).equals(key)) {
+				// remove all keys before the original
+				visitedStates.put(keys.get(keys.size() - 1), false);
+				keys.remove(keys.size() - 1);
+
+				// i can't make the values null again, for some reason, so I
+				// make them false.
 			}
-			System.out.println("Found a duplicate state");
+			System.out.println("Found a duplicate state" + keys.get(0));
 		}
 	}
 
@@ -76,8 +94,12 @@ public class Board {
 	 */
 	public void test() {
 		int i = 0;
+		System.out.println("First one:");
+		print();
+		saveState();
 		while (!winCondition()) {
 
+			// print();
 			Move next = nextMove();
 			// time to switch the hole and one of the squares
 			Point swapTarget = next.doMove(hole);
@@ -85,24 +107,28 @@ public class Board {
 			place[hole.getX()][hole.getY()] = place[swapTarget.getX()][swapTarget.getY()];
 			place[swapTarget.getX()][swapTarget.getY()] = 0;
 			hole = swapTarget;
-			
+
 			saveState();
-
-			if (i++ % 10000 == 0) {
-				System.out.println();
-				print();
-			}
-
-		
 
 			// String test = slow.nextLine();
 
 		}
+
 	}
 	
-	public void otherTest(){
-		System.out.println("HERES THE STATER OF THINGS:" + state(place));
+	/**
+	 * Assumes we have an arraylist of states, and the last state is the winning state. 
+	 */
+	private void pruneHistory(){
+		
+		for(int i = 0; i < keys.size(); i++);
+		int[][] branch;
+		
+		
+		
+		
 	}
+	
 
 	/**
 	 * ASSUMES A SQUARE ARRAY TODO: need to fix the thing where the width and
@@ -137,6 +163,15 @@ public class Board {
 		}
 	}
 
+	public void printHistory() {
+		for (int i = 0; i < keys.size(); i++) {
+			fromState(keys.get(i), place);
+			print();
+			System.out.println("VICOTRY LAP");
+		}
+
+	}
+
 	/**
 	 * Not sure how to make sure that moves always get added to move history...
 	 * Also, I set myself up so choosing random moves near walls and corners
@@ -147,7 +182,7 @@ public class Board {
 	private Move nextMove() {
 		Move result = randomMove();
 		if (last != null) {
-			
+
 			while (result.reverse(last) || !inBounds(result.doMove(hole))) {
 				if (randy.nextBoolean()) {
 					// System.out.println("Decrementing: " + result);
@@ -273,6 +308,8 @@ public class Board {
 			}
 		}
 		System.out.println("YOU WIN");
+		print();
+		printHistory();
 		return true;
 	}
 
@@ -285,24 +322,34 @@ public class Board {
 		}
 	}
 
-	public int state(int[][] board) {
+	public Integer state(int[][] board) {
 		String temp = "";
 		for (int i = 0; i < place.length; i++) {
 			for (int q = 0; q < place[i].length; q++) {
 				temp += place[i][q];
 			}
 		}
-		int result = Integer.parseInt(temp);
+		Integer result = new Integer(Integer.parseInt(temp));
+
 		return result;
 	}
 
-	public void fromState(int state, int[][] modified) {
+	public void fromState(Integer state, int[][] modified) {
 		String str = "" + state;
+		System.out.println("STR IS: " + str);
 		int count = 0;
-		for (int i = 0; i < place.length; i++) {
-			for (int q = 0; q < place[i].length; q++) {
-				modified[i][q] = str.charAt(count);
-				count++;
+
+		if (str.length() == 8) {
+			modified[0][0] = 0;
+			for (int i = 1; i < str.length() + 1; i++) {
+				// the array sees i+1, but the string just sees i
+				modified[i / GRIDLENGTH][i % 3] = str.charAt(i - 1) - 48;
+			}
+
+		} else {
+
+			for (int i = 0; i < str.length(); i++) {
+				modified[i / 3][i % 3] = str.charAt(i) - 48;
 			}
 		}
 
