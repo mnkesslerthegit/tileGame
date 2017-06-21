@@ -48,6 +48,8 @@ public class TileGame extends Application {
 //		grid.getChildren().get(1).setRotate(3.4);
 		myBoard.test();
 		//myBoard.otherTest();
+		System.out.println("done");
+		System.exit(0);
 	}
 
 	private void initGrid(GridPane grid) {

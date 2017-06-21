@@ -31,27 +31,27 @@ public class Board {
 
 	private static final int GRIDWIDTH = 3;
 	private static final int GRIDLENGTH = 3;
-	private final int[][] place;
-	private Point hole;
-	
+	private int[][] place;
+
+	// trying to replace these with a state variable
+	// private Point hole;
+	// private Move last;
+	State current;
 
 	/**
 	 * remember if a state was generated
 	 */
 	Hashtable<Integer, Boolean> visitedStates = new Hashtable<Integer, Boolean>(362880);
-	ArrayList<Integer> keys = new ArrayList<>();
+	ArrayList<State> states = new ArrayList<>();
+
 	/**
 	 * Keep track of the last move
 	 */
-	private Move last;
-
-	public void otherTest() {
-
-	}
 
 	public Board() {
 		ArrayReader reader = new ArrayReader("tiles.txt");
 		place = reader.read();
+		Point hole = null;
 
 		for (int i = 0; i < place.length; i++) {
 			for (int q = 0; q < place[i].length; q++) {
@@ -59,12 +59,19 @@ public class Board {
 					hole = new Point(i, q);
 			}
 		}
+
+		current = new State(state(place), hole, null);
 		// visitedStates.clear();
 	}
 
-	private void saveState() {
+	/**
+	 * Saves the place array as an integer, and adds it to move history, and
+	 * hashes it into a table.
+	 */
+	private void saveState(State current) {
 		Integer key = state(place);
-		keys.add(key);
+
+		states.add(current);
 		// System.out.println(key.hashCode());
 		// visitedStates.clear();
 		// visitedStates.put(1, true);
@@ -73,17 +80,18 @@ public class Board {
 									// we've been here before, and all
 									// the steps before were useless.
 
-			keys.remove(keys.size() - 1); // remove the repeat key
-
-			while (!keys.isEmpty() && !keys.get(keys.size() - 1).equals(key)) {
+			states.remove(states.size() - 1); // remove the repeat key
+			// System.out.println(states.size() + " before");
+			while (!states.isEmpty() && !states.get(states.size() - 1).state.equals(key)) {
 				// remove all keys before the original
-				visitedStates.put(keys.get(keys.size() - 1), false);
-				keys.remove(keys.size() - 1);
+				visitedStates.put(states.get(states.size() - 1).state, false);
+				states.remove(states.size() - 1);
 
 				// i can't make the values null again, for some reason, so I
 				// make them false.
 			}
-			System.out.println("Found a duplicate state" + keys.get(0));
+			// System.out.println(states.size() + " after");
+			// System.out.println("Found a duplicate state" + states.get(0));
 		}
 	}
 
@@ -96,39 +104,159 @@ public class Board {
 		int i = 0;
 		System.out.println("First one:");
 		print();
-		saveState();
+		// saveState();
+
+		int count = 0;
 		while (!winCondition()) {
+			// while (count++ < 10) {
 
 			// print();
-			Move next = nextMove();
+			Move nextMove = nextMove(current);
 			// time to switch the hole and one of the squares
-			Point swapTarget = next.doMove(hole);
+			Point swapTarget = nextMove.doMove(current.hole);
 
-			place[hole.getX()][hole.getY()] = place[swapTarget.getX()][swapTarget.getY()];
+			place[current.hole.getX()][current.hole.getY()] = place[swapTarget.getX()][swapTarget.getY()];
 			place[swapTarget.getX()][swapTarget.getY()] = 0;
-			hole = swapTarget;
+			State nextState = new State(state(place), swapTarget, nextMove);
 
-			saveState();
+			// save the new state
+			saveState(nextState);
+			// current state becomes new state
+			current = nextState;
 
 			// String test = slow.nextLine();
+			// System.out.println("Progress?");
+			// print();
+		}
+		System.out.println("Solved in: " + states.size() + " steps");
+		pruneHistory();
+
+		System.out.println("Solved in: " + states.size() + " steps");
+		System.out.println(winCondition());
+
+	}
+
+	/**
+	 * Takes in an array, and the state associated with it, and makes one valid
+	 * move.
+	 * 
+	 * @param tiles
+	 * @return gives the resulting state from making the move.
+	 */
+	private State swapTile(int[][] tiles, State info) {
+		// last = info.lastMove;
+
+		Move next = nextMove(info);
+
+		Point hole = info.hole;
+		// System.out.print("hole is: " + hole);
+
+		// time to switch the hole and one of the squares
+		Point swapTarget = next.doMove(hole);
+		// System.out.println("here's the hole: " + hole);
+
+		tiles[hole.getX()][hole.getY()] = tiles[swapTarget.getX()][swapTarget.getY()];
+		tiles[swapTarget.getX()][swapTarget.getY()] = 0;
+
+		return new State(state(tiles), swapTarget, next);
+
+	}
+
+	/**
+	 * Finds the zero in a 3x3 two dimensional array
+	 * 
+	 * @param arr
+	 * @return a point where a zero is, or null
+	 */
+	private Point getHole(int[][] arr) {
+		for (int i = 0; i < this.GRIDLENGTH; i++) {
+			for (int q = 0; q < this.GRIDWIDTH; q++) {
+				if (arr[i][q] == 0) {
+					return new Point(i, q);
+				}
+			}
+		}
+		return null;
+	}
+
+	private class State {
+		private final Integer state;
+		private final Point hole;
+		private final Move lastMove;
+
+		public State(int state, Point hole, Move last) {
+			this.state = state;
+			this.hole = hole;
+			this.lastMove = last;
+
+		}
+
+		@Override
+		public boolean equals(Object other) {
+			if (other == this) {
+				return true;
+			}
+
+			if (!(other instanceof State)) {
+				return false;
+			}
+
+			// typecast o to Complex so that we can compare data members
+			State otherState = (State) other;
+
+			return otherState.state.equals(state);
+
+		}
+
+		public String toString() {
+			return state + " last move: " + lastMove;
+		}
+
+	}
+
+	int exitCount = 0;
+
+	/**
+	 * Assumes we have an arraylist of states, and the last state is the winning
+	 * state. apparently the states list holds the last state in index 0.
+	 * 
+	 */
+	private void pruneHistory() {
+
+		boolean result = false;
+
+		// System.out.println(i);
+		State nextState = states.get(states.size() - 1);
+		ArrayList<State> altSteps = new ArrayList<State>();
+
+		// System.out.println("here's the state: ");
+
+		int[][] branch = fromState(nextState.state);
+		// print(branch);
+		for (int q = 0; q < states.size(); q++) { // iterate until we've
+													// moved too much to
+													// shortcut
+
+			// generate new states
+			// State test = swapTile(branch, nextState);
+			nextState = swapTile(branch, nextState);
+			altSteps.add(nextState);
+			int index = states.indexOf(nextState);
+			if (index != -1) {
+				System.out.println("index is: " + index);
+				// at first, its fine if index is slightly less than the size
+				// then it needs to be zero eventually
+				if (index < states.size() - altSteps.size()) {
+					
+				}
+			}
+
+			// System.out.println(nextState);
+			// TODO: get this to match
 
 		}
 
 	}
-	
-	/**
-	 * Assumes we have an arraylist of states, and the last state is the winning state. 
-	 */
-	private void pruneHistory(){
-		
-		for(int i = 0; i < keys.size(); i++);
-		int[][] branch;
-		
-		
-		
-		
-	}
-	
 
 	/**
 	 * ASSUMES A SQUARE ARRAY TODO: need to fix the thing where the width and
@@ -164,56 +292,51 @@ public class Board {
 	}
 
 	public void printHistory() {
-		for (int i = 0; i < keys.size(); i++) {
-			fromState(keys.get(i), place);
+		for (int i = 0; i < states.size(); i++) {
+			place = fromState(states.get(i).state);
 			print();
-			System.out.println("VICOTRY LAP");
+			System.out.println("VICTORY LAP");
 		}
+		// System.out.println("why not finished?");
 
 	}
 
 	/**
+	 * 
 	 * Not sure how to make sure that moves always get added to move history...
 	 * Also, I set myself up so choosing random moves near walls and corners
 	 * creates unnecessary steps.
 	 * 
-	 * @return
+	 * @return a new move that isn't the same move as the last move. This method
+	 *         always remembers the last move
 	 */
-	private Move nextMove() {
+	private Move nextMove(State current) {
 		Move result = randomMove();
-		if (last != null) {
+		if (current.lastMove != null) {
 
-			while (result.reverse(last) || !inBounds(result.doMove(hole))) {
+			while (result.reverse(current.lastMove) || !inBounds(result.doMove(current.hole))) {
 				if (randy.nextBoolean()) {
 					// System.out.println("Decrementing: " + result);
 					result = result.decrement();
 					// System.out.println("decrementing finished: " + result);
-
 				} else {
 					// System.out.println("Incrementing" + result);
-
 					result = result.increment();
-
 					// System.out.println("Incrementing finished: " + result);
 				}
 				// System.out.println(result);
-
 			}
 		} else {
-			while (!inBounds(result.doMove(hole))) {
+			while (!inBounds(result.doMove(current.hole))) {
 				if (randy.nextBoolean()) {
-
 					result = result.decrement();
-
 				} else {
-
 					result = result.increment();
-
 				}
 			}
 		}
-
-		last = result;
+		// TODO: I used to remember the last move here
+		// last = result;
 		// System.out.println("MOVING: " + result);
 		return result;
 	}
@@ -308,25 +431,30 @@ public class Board {
 			}
 		}
 		System.out.println("YOU WIN");
-		print();
-		printHistory();
+		// print();
+		// printHistory();
 		return true;
 	}
 
-	public void print() {
-		for (int i = 0; i < place.length; i++) {
-			for (int q = 0; q < place[i].length; q++) {
-				System.out.print(place[i][q] + "	");
+	public void print(int[][] board) {
+		for (int i = 0; i < board.length; i++) {
+			for (int q = 0; q < board[i].length; q++) {
+				System.out.print(board[i][q] + "	");
 			}
 			System.out.println();
 		}
 	}
 
+	public void print() {
+
+		print(place);
+	}
+
 	public Integer state(int[][] board) {
 		String temp = "";
-		for (int i = 0; i < place.length; i++) {
-			for (int q = 0; q < place[i].length; q++) {
-				temp += place[i][q];
+		for (int i = 0; i < board.length; i++) {
+			for (int q = 0; q < board[i].length; q++) {
+				temp += board[i][q];
 			}
 		}
 		Integer result = new Integer(Integer.parseInt(temp));
@@ -334,24 +462,26 @@ public class Board {
 		return result;
 	}
 
-	public void fromState(Integer state, int[][] modified) {
+	public int[][] fromState(Integer state) {
 		String str = "" + state;
-		System.out.println("STR IS: " + str);
-		int count = 0;
+		// System.out.println("STR IS: " + str);
 
+		int[][] result = new int[GRIDLENGTH][GRIDWIDTH];
 		if (str.length() == 8) {
-			modified[0][0] = 0;
+			result[0][0] = 0;
 			for (int i = 1; i < str.length() + 1; i++) {
 				// the array sees i+1, but the string just sees i
-				modified[i / GRIDLENGTH][i % 3] = str.charAt(i - 1) - 48;
+				result[i / GRIDLENGTH][i % 3] = str.charAt(i - 1) - 48;
 			}
 
 		} else {
 
 			for (int i = 0; i < str.length(); i++) {
-				modified[i / 3][i % 3] = str.charAt(i) - 48;
+				result[i / 3][i % 3] = str.charAt(i) - 48;
 			}
 		}
+
+		return result;
 
 	}
 
