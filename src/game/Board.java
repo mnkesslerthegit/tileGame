@@ -15,14 +15,10 @@ import utility.Point;
 
 /**
  * 
- * use brute force get every number in the right place, and then use breadth on
- * the states to see if they yield short cuts to later states. iterating over
- * the whole list looking for shortcuts until the number of steps stops
- * changing.
+ *
+ *Need to construct test class to figure out what's going on
+ *when I trim the move history down
  * 
- * As extra work, try to figure out a faster way to get the answer than brute
- * force? one thing is don't allow moves that go to a previous state, and cut
- * those out of the solution early.
  * 
  * @author Max
  *
@@ -42,7 +38,7 @@ public class Board {
 	 * remember if a state was generated
 	 */
 	Hashtable<Integer, Boolean> visitedStates = new Hashtable<Integer, Boolean>(362880);
-	ArrayList<State> states = new ArrayList<>();
+	List<State> states = new ArrayList<>();
 
 	/**
 	 * Keep track of the last move
@@ -129,7 +125,9 @@ public class Board {
 			// print();
 		}
 		System.out.println("Solved in: " + states.size() + " steps");
+		for(int q = 0; q < 100; q++){
 		pruneHistory();
+		}
 
 		System.out.println("Solved in: " + states.size() + " steps");
 		System.out.println(winCondition());
@@ -247,7 +245,10 @@ public class Board {
 				// at first, its fine if index is slightly less than the size
 				// then it needs to be zero eventually
 				if (index < states.size() - altSteps.size()) {
-					
+					System.out.println("replacing happened");
+					states = states.subList(0, index);
+					states.addAll(altSteps);
+					break;
 				}
 			}
 
